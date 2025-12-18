@@ -10,9 +10,8 @@ import { ConnectionLine } from "@/components/Canvas/ConnectionLine";
 import { ComponentLibrarySidebar, CanvasPropertiesSidebar } from "@/components/Canvas/ComponentLibrarySidebar";
 import { ComponentItem, CanvasItem, Connection, Grip } from "@/components/Canvas/types";
 import { calculateManualPathsWithBridges } from "@/utils/routing";
-import { useHistory } from "@/hooks/useHistory";
-import { MdZoomIn,MdZoomOut } from "react-icons/md";
-import { TbLayoutSidebarRightExpand,TbLayoutSidebarRightCollapse,TbLayoutSidebarLeftCollapse,TbLayoutSidebarLeftExpand } from "react-icons/tb";
+import { useHistory } from "@/hooks/useHistory"; 
+import { TbLayoutSidebarRightExpand, TbLayoutSidebarRightCollapse, TbLayoutSidebarLeftCollapse, TbLayoutSidebarLeftExpand } from "react-icons/tb";
 import { MdZoomIn, MdZoomOut, MdCenterFocusWeak } from "react-icons/md";
 interface CanvasState {
   items: CanvasItem[];
@@ -35,60 +34,60 @@ export default function Editor() {
     setStageScale(prev => Math.max(0.1, prev - 0.1)); // Min 10%, decrement 10%
   };
   const handleCenterToContent = () => {
-  if (droppedItems.length === 0) {
-    // If no items, reset view
-    setStagePos({ x: 0, y: 0 });
-    setStageScale(1);
-    return;
-  }
+    if (droppedItems.length === 0) {
+      // If no items, reset view
+      setStagePos({ x: 0, y: 0 });
+      setStageScale(1);
+      return;
+    }
 
-  // Calculate bounding box of all items
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
+    // Calculate bounding box of all items
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
 
-  droppedItems.forEach(item => {
-    minX = Math.min(minX, item.x);
-    minY = Math.min(minY, item.y);
-    maxX = Math.max(maxX, item.x + item.width);
-    maxY = Math.max(maxY, item.y + item.height);
-  });
+    droppedItems.forEach(item => {
+      minX = Math.min(minX, item.x);
+      minY = Math.min(minY, item.y);
+      maxX = Math.max(maxX, item.x + item.width);
+      maxY = Math.max(maxY, item.y + item.height);
+    });
 
-  // Add some padding
-  const padding = 100;
-  const contentWidth = maxX - minX + padding * 2;
-  const contentHeight = maxY - minY + padding * 2;
+    // Add some padding
+    const padding = 100;
+    const contentWidth = maxX - minX + padding * 2;
+    const contentHeight = maxY - minY + padding * 2;
 
-  if (stageRef.current && containerRef.current) {
-    const containerWidth = stageSize.width;
-    const containerHeight = stageSize.height;
+    if (stageRef.current && containerRef.current) {
+      const containerWidth = stageSize.width;
+      const containerHeight = stageSize.height;
 
-    // Calculate scale to fit content
-    const scaleX = containerWidth / contentWidth;
-    const scaleY = containerHeight / contentHeight;
-    const scale = Math.min(scaleX, scaleY, 1); // Don't zoom in beyond 100%
+      // Calculate scale to fit content
+      const scaleX = containerWidth / contentWidth;
+      const scaleY = containerHeight / contentHeight;
+      const scale = Math.min(scaleX, scaleY, 1); // Don't zoom in beyond 100%
 
-    // Calculate center position
-    const centerX = minX - padding + contentWidth / 2;
-    const centerY = minY - padding + contentHeight / 2;
-    
-    const targetX = (containerWidth / 2) - (centerX * scale);
-    const targetY = (containerHeight / 2) - (centerY * scale);
+      // Calculate center position
+      const centerX = minX - padding + contentWidth / 2;
+      const centerY = minY - padding + contentHeight / 2;
 
-    // Animate to position
-    setStageScale(scale);
-    setStagePos({ x: targetX, y: targetY });
-  }
-};
+      const targetX = (containerWidth / 2) - (centerX * scale);
+      const targetY = (containerHeight / 2) - (centerY * scale);
+
+      // Animate to position
+      setStageScale(scale);
+      setStagePos({ x: targetX, y: targetY });
+    }
+  };
   // History Managed State (Items & Connections)
-  const { 
-    state: canvasState, 
-    set: setCanvasState, 
-    undo, 
-    redo, 
-    canUndo, 
-    canRedo 
+  const {
+    state: canvasState,
+    set: setCanvasState,
+    undo,
+    redo,
+    canUndo,
+    canRedo
   } = useHistory<CanvasState>({ items: [], connections: [] });
 
   const droppedItems = canvasState.items;
@@ -96,17 +95,17 @@ export default function Editor() {
 
   // Helpers to maintain compatibility with existing code while pushing to history
   const setDroppedItems = (update: React.SetStateAction<CanvasItem[]>) => {
-      setCanvasState(prev => {
-          const newItems = typeof update === 'function' ? (update as any)(prev.items) : update;
-          return { ...prev, items: newItems };
-      });
+    setCanvasState(prev => {
+      const newItems = typeof update === 'function' ? (update as any)(prev.items) : update;
+      return { ...prev, items: newItems };
+    });
   };
 
   const setConnections = (update: React.SetStateAction<Connection[]>) => {
-      setCanvasState(prev => {
-          const newConnections = typeof update === 'function' ? (update as any)(prev.connections) : update;
-          return { ...prev, connections: newConnections };
-      });
+    setCanvasState(prev => {
+      const newConnections = typeof update === 'function' ? (update as any)(prev.connections) : update;
+      return { ...prev, connections: newConnections };
+    });
   };
 
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
@@ -176,6 +175,10 @@ export default function Editor() {
         redo();
         return;
       }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+      e.preventDefault();
+      handleCenterToContent();
+    }
 
       if (e.key === 'Delete' || e.key === 'Backspace' || e.key.toLowerCase() === 'd') {
         if (selectedConnectionId !== null) {
@@ -321,8 +324,8 @@ export default function Editor() {
   const handleDeleteItem = (itemId: number) => {
     // Atomic update for history
     setCanvasState(prev => ({
-        items: prev.items.filter(item => item.id !== itemId),
-        connections: prev.connections.filter(c => c.sourceItemId !== itemId && c.targetItemId !== itemId)
+      items: prev.items.filter(item => item.id !== itemId),
+      connections: prev.connections.filter(c => c.sourceItemId !== itemId && c.targetItemId !== itemId)
     }));
 
     if (selectedItemId === itemId) {
@@ -413,26 +416,26 @@ export default function Editor() {
   };
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
 
-    useEffect(() => {
-      if (!containerRef.current) return;
+  useEffect(() => {
+    if (!containerRef.current) return;
 
-      const resizeObserver = new ResizeObserver(entries => {
-        const rect = entries[0].contentRect;
-        setStageSize({
-          width: rect.width,
-          height: rect.height,
-        });
+    const resizeObserver = new ResizeObserver(entries => {
+      const rect = entries[0].contentRect;
+      setStageSize({
+        width: rect.width,
+        height: rect.height,
       });
+    });
 
-      resizeObserver.observe(containerRef.current);
-      return () => resizeObserver.disconnect();
-    }, []);
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
 
 
   return (
-  <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
       {/* Header Bar */}
-    <div className="h-14 shrink-0 border-b flex items-center px-4 justify-between bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 z-10">
+      <div className="h-14 shrink-0 border-b flex items-center px-4 justify-between bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 z-10">
         <div className="flex items-center gap-2">
           <Tooltip content="Back to Dashboard">
             <Button
@@ -497,7 +500,7 @@ export default function Editor() {
       </div>
 
       {/* Main workspace */}
-          <div
+      <div
         className="flex-1 grid overflow-hidden transition-all duration-300"
         style={{
           gridTemplateColumns: `
@@ -507,40 +510,40 @@ export default function Editor() {
           `,
         }}
       >
-    {/* Left Sidebar - Component Library */}
+        {/* Left Sidebar - Component Library */}
         <div className="relative overflow-hidden border-r border-gray-200 dark:border-gray-800">
 
-  {/* Collapse Button */}
-        <button
-          onClick={() => setLeftCollapsed(v => !v)}
-          className="absolute top-2 right-2 z-10 w-7 h-7 flex items-center justify-center
+          {/* Collapse Button */}
+          <button
+            onClick={() => setLeftCollapsed(v => !v)}
+            className="absolute top-2 right-2 z-10 w-7 h-7 flex items-center justify-center
             rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700
             hover:bg-gray-100 dark:hover:bg-gray-700"
-          title={leftCollapsed ? "Expand" : "Collapse"}
-        >
-          {!leftCollapsed ? <TbLayoutSidebarLeftCollapse />
- : <TbLayoutSidebarLeftExpand />
-}
-        </button>
+            title={leftCollapsed ? "Expand" : "Collapse"}
+          >
+            {!leftCollapsed ? <TbLayoutSidebarLeftCollapse />
+              : <TbLayoutSidebarLeftExpand />
+            }
+          </button>
 
-        {!leftCollapsed && (
-          <ComponentLibrarySidebar
-            components={components}
-            onDragStart={handleDragStart}
-            onSearch={setSearchQuery}
-            initialSearchQuery={searchQuery}
-          />
-        )}
-      </div>
+          {!leftCollapsed && (
+            <ComponentLibrarySidebar
+              components={components}
+              onDragStart={handleDragStart}
+              onSearch={setSearchQuery}
+              initialSearchQuery={searchQuery}
+            />
+          )}
+        </div>
 
 
 
         {/* Canvas Area - Konva */}
         <div
-        ref={containerRef}
-        className="relative min-w-0 overflow-hidden bg-white"
-        onDrop={handleDrop}
-        onDragOver={(e) => e.preventDefault()}
+          ref={containerRef}
+          className="relative min-w-0 overflow-hidden bg-white"
+          onDrop={handleDrop}
+          onDragOver={(e) => e.preventDefault()}
         >
           {/* CSS Grid Background */}
           <div
@@ -677,56 +680,69 @@ export default function Editor() {
               <div className="flex gap-2 dark:text-gray-200">
                 <span className="font-bold text-gray-400">Y</span> {cursorPos.y}
               </div>
-              
-              
+
+
               <div className="w-px h-3 bg-gray-300"></div>
-              
-          {/* Zoom Controls */}
-          <div className="flex items-center gap-2">
-            {/* Zoom Out Button */}
-            <button
-              onClick={handleZoomOut}
-              disabled={stageScale <= 0.1}
-              className="w-8 h-8 flex items-center justify-center rounded-full
+
+              {/* Zoom Controls */}
+              <div className="flex items-center gap-2">
+                {/* Zoom Out Button */}
+                <button
+                  onClick={handleZoomOut}
+                  disabled={stageScale <= 0.1}
+                  className="w-8 h-8 flex items-center justify-center rounded-full
                 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700
                 border border-gray-300 dark:border-gray-600
                 shadow-sm hover:shadow
                 disabled:opacity-40 disabled:cursor-not-allowed
                 transition-all duration-200"
-              title="Zoom Out"
-            >
-              <MdZoomOut className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-            </button>
-            
-            {/* Zoom Percentage Display & Reset */}
-            <div className="flex items-center">
-              {/* Percentage Display */}
-              <div className="px-3 py-1.5 text-sm font-medium
+                  title="Zoom Out"
+                >
+                  <MdZoomOut className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                </button>
+
+                {/* Zoom Percentage Display & Reset */}
+                <div className="flex items-center">
+                  {/* Percentage Display */}
+                  <div className="px-3 py-1.5 text-sm font-medium
                 bg-gray-50 dark:bg-gray-800 
                 rounded-l-md
                 text-gray-700 dark:text-gray-300">
-                {Math.round(stageScale * 100)}%
-              </div>
-              
-              {/* Reset Button */}
-              
-            </div>
-            
-            {/* Zoom In Button */}
-            <button
-              onClick={handleZoomIn}
-              disabled={stageScale >= 3}
-              className="w-8 h-8 flex items-center justify-center rounded-full
+                    {Math.round(stageScale * 100)}%
+                  </div>
+
+                  {/* Reset Button */}
+
+                </div>
+                <button
+                  onClick={handleCenterToContent}
+                  disabled={droppedItems.length === 0}
+                  className="w-8 h-8 flex items-center justify-center rounded-full
                 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700
                 border border-gray-300 dark:border-gray-600
                 shadow-sm hover:shadow
                 disabled:opacity-40 disabled:cursor-not-allowed
                 transition-all duration-200"
-              title="Zoom In"
-            >
-              <MdZoomIn className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-            </button>
-          </div>
+                  title="Center to Content"
+                >
+                  <MdCenterFocusWeak className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                </button>
+
+                {/* Zoom In Button */}
+                <button
+                  onClick={handleZoomIn}
+                  disabled={stageScale >= 3}
+                  className="w-8 h-8 flex items-center justify-center rounded-full
+                bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700
+                border border-gray-300 dark:border-gray-600
+                shadow-sm hover:shadow
+                disabled:opacity-40 disabled:cursor-not-allowed
+                transition-all duration-200"
+                  title="Zoom In"
+                >
+                  <MdZoomIn className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
             </div>
           </div>
           {/* Connection Guidance Overlay */}
@@ -771,35 +787,35 @@ export default function Editor() {
             </div>
           )}
         </div>
-          {/* Right Sidebar - Canvas Properties/Items List */}
-        
+        {/* Right Sidebar - Canvas Properties/Items List */}
+
         <div className="relative overflow-hidden border-l border-gray-200 dark:border-gray-800 hidden lg:block">
 
-  {/* Collapse Button */}
-  <button
-    onClick={() => setRightCollapsed(v => !v)}
-    className="absolute top-2 left-2 z-10 w-7 h-7 flex items-center justify-center
+          {/* Collapse Button */}
+          <button
+            onClick={() => setRightCollapsed(v => !v)}
+            className="absolute top-2 left-2 z-10 w-7 h-7 flex items-center justify-center
       rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700
       hover:bg-gray-100 dark:hover:bg-gray-700"
-    title={rightCollapsed ? "Expand" : "Collapse"}
-  >
-    {!rightCollapsed ? <TbLayoutSidebarRightCollapse />
- : <TbLayoutSidebarRightExpand />}
-  </button>
+            title={rightCollapsed ? "Expand" : "Collapse"}
+          >
+            {!rightCollapsed ? <TbLayoutSidebarRightCollapse />
+              : <TbLayoutSidebarRightExpand />}
+          </button>
 
-  {!rightCollapsed && (
-    <CanvasPropertiesSidebar
-      items={droppedItems}
-      selectedItemId={selectedItemId}
-      onSelectItem={handleSelectItem}
-      onDeleteItem={handleDeleteItem}
-      onUpdateItem={handleUpdateItem}
-      showAllItemsByDefault
-    />
-  )}
-</div>
+          {!rightCollapsed && (
+            <CanvasPropertiesSidebar
+              items={droppedItems}
+              selectedItemId={selectedItemId}
+              onSelectItem={handleSelectItem}
+              onDeleteItem={handleDeleteItem}
+              onUpdateItem={handleUpdateItem}
+              showAllItemsByDefault
+            />
+          )}
+        </div>
       </div>
-      
+
     </div>
   );
 }
