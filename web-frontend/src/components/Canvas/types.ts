@@ -30,6 +30,9 @@ export interface Connection {
   sourceGripIndex: number;
   targetItemId: number;
   targetGripIndex: number;
+  // Optional manual waypoints (absolute canvas coordinates) between source and target grips.
+  // When present, the rendered line will go: sourceGrip -> ...waypoints... -> targetGrip.
+  waypoints?: { x: number; y: number }[];
 }
 
 export interface StagePosition {
