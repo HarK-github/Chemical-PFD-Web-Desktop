@@ -39,6 +39,7 @@ export async function exportToImage(
       if (!items.length) {
         throw new Error('Nothing to export');
       }
+      
 
       const padding = options.padding ?? 40;
       const bounds = getContentBounds(items);

@@ -521,6 +521,15 @@ export default function Editor() {
           >
             Export
           </Button>
+          <Button
+            size="sm"
+            variant="bordered"
+            className="border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300"
+            onPress={() => setShowExportModal(true)}
+            startContent={<FiDownload />}
+          >
+            Generate Report
+          </Button>
           <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700">Save Changes</Button>
         </div>
       </div>
