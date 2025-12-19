@@ -158,9 +158,13 @@ export default function Editor() {
   const dragItemRef = useRef<ComponentItem | null>(null);
 
   // --- Initialization ---
+  /* 
+  // No longer needed - components loaded from Context
   useEffect(() => {
     setComponents(componentsConfig);
   }, []);
+  */
+
 
   // --- Helpers ---
   const getGripPosition = (item: CanvasItem, gripIndex: number): { x: number; y: number } | null => {
