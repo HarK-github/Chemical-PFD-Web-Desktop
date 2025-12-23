@@ -64,7 +64,7 @@ export interface ComponentLibrarySidebarProps {
 export interface CanvasItemImageProps {
   item: CanvasItem;
   isSelected: boolean;
-  onSelect: () => void;
+  onSelect: (e?: any) => void; // Loose typing to allow Konva event passing
   onChange: (newAttrs: CanvasItem) => void;
   onDragEnd?: (item: CanvasItem) => void;
   onTransformEnd?: (item: CanvasItem) => void;

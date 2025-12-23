@@ -222,7 +222,12 @@ interface EditorStore {
   removeConnection: (editorId: string, connectionId: number) => void;
 
   // batch operations
-  updateCanvasState: (editorId: string, state: CanvasState) => void;
+  batchUpdateItems: (
+    editorId: string,
+    updates: { id: number; patch: Partial<CanvasItem> }[],
+  ) => void;
+  batchDeleteItems: (editorId: string, itemIds: number[]) => void;
+  batchRemoveConnections: (editorId: string, connectionIds: number[]) => void;
 
   // helpers
   getEditorState: (editorId: string) => CanvasState | undefined;
@@ -232,6 +237,7 @@ interface EditorStore {
   // persistence hooks (optional)
   hydrateEditor: (editorId: string, state: CanvasState) => void;
   exportEditorJSON: (editorId: string) => any;
+  updateCanvasState: (editorId: string, state: CanvasState) => void;
 }
 
 function padCount(n: number) {
@@ -271,92 +277,92 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
   // In useEditorStore.ts, update the addItem function:
 
-addItem: (editorId, component, opts = {}) => {
-  // ensure editor exists
-  const editor = get().editors[editorId] ?? {
-    items: [],
-    connections: [],
-    counts: {},
-    sequenceCounter: 0,
-  };
+  addItem: (editorId, component, opts = {}) => {
+    // ensure editor exists
+    const editor = get().editors[editorId] ?? {
+      items: [],
+      connections: [],
+      counts: {},
+      sequenceCounter: 0,
+    };
 
-  // create key for counts (prefer object, fallback to name)
-  const key = component.object?.trim() || component.name.trim();
+    // create key for counts (prefer object, fallback to name)
+    const key = component.object?.trim() || component.name.trim();
 
-  const currentCount = editor.counts[key] ?? 0;
-  const nextCount = currentCount + 1;
+    const currentCount = editor.counts[key] ?? 0;
+    const nextCount = currentCount + 1;
 
-  const legend = component.legend ?? "";
-  const suffix = component.suffix ?? "";
+    const legend = component.legend ?? "";
+    const suffix = component.suffix ?? "";
 
-  // DEBUG: Log the component data being added
-  console.log("Adding component:", {
-    name: component.name,
-    legend,
-    suffix,
-    objectKey: key,
-    currentCount,
-    nextCount,
-    padCount: padCount(nextCount)
-  });
+    // DEBUG: Log the component data being added
+    console.log("Adding component:", {
+      name: component.name,
+      legend,
+      suffix,
+      objectKey: key,
+      currentCount,
+      nextCount,
+      padCount: padCount(nextCount)
+    });
 
-  // Generate label: Legend + Count + Suffix
-  const label = `${legend}${padCount(nextCount)}${suffix}`;
+    // Generate label: Legend + Count + Suffix
+    const label = `${legend}${padCount(nextCount)}${suffix}`;
 
-  const id = ++globalIdCounter;
-  const seq = (editor.sequenceCounter ?? 0) + 1;
+    const id = ++globalIdCounter;
+    const seq = (editor.sequenceCounter ?? 0) + 1;
 
-  const newItem: CanvasItem = {
-    id,
-    name: component.name,
-    icon: component.icon || "",
-    svg: component.svg || "",
-    class: component.class || "",
-    object: component.object || component.name,
-    args: component.args || [],
-    objectKey: key,
-    label, // This is the formatted label
-    legend,
-    suffix,
-    description: component.description ?? "",
-    png: component.png,
-    grips: component.grips,
-    x: typeof opts.x === "number" ? opts.x : 100,
-    y: typeof opts.y === "number" ? opts.y : 100,
-    width: typeof opts.width === "number" ? opts.width : 80,
-    height: typeof opts.height === "number" ? opts.height : 40,
-    rotation: typeof opts.rotation === "number" ? opts.rotation : 0,
-    sequence: seq,
-    addedAt: Date.now(),
-    isCustom: component.isCustom,
-  };
+    const newItem: CanvasItem = {
+      id,
+      name: component.name,
+      icon: component.icon || "",
+      svg: component.svg || "",
+      class: component.class || "",
+      object: component.object || component.name,
+      args: component.args || [],
+      objectKey: key,
+      label, // This is the formatted label
+      legend,
+      suffix,
+      description: component.description ?? "",
+      png: component.png,
+      grips: component.grips,
+      x: typeof opts.x === "number" ? opts.x : 100,
+      y: typeof opts.y === "number" ? opts.y : 100,
+      width: typeof opts.width === "number" ? opts.width : 80,
+      height: typeof opts.height === "number" ? opts.height : 40,
+      rotation: typeof opts.rotation === "number" ? opts.rotation : 0,
+      sequence: seq,
+      addedAt: Date.now(),
+      isCustom: component.isCustom,
+    };
 
-  // DEBUG: Log the created item
-  console.log("Created CanvasItem:", {
-    label: newItem.label,
-    legend: newItem.legend,
-    suffix: newItem.suffix,
-    objectKey: newItem.objectKey
-  });
+    // DEBUG: Log the created item
+    console.log("Created CanvasItem:", {
+      label: newItem.label,
+      legend: newItem.legend,
+      suffix: newItem.suffix,
+      objectKey: newItem.objectKey
+    });
 
-  // update store
-  set((s) => ({
-    editors: {
-      ...s.editors,
-      [editorId]: {
-        items: [...(s.editors[editorId]?.items ?? editor.items), newItem],
-        connections: s.editors[editorId]?.connections ?? editor.connections,
-        counts: {
-          ...(s.editors[editorId]?.counts ?? editor.counts),
-          [key]: nextCount,
+    // update store
+    set((s) => ({
+      editors: {
+        ...s.editors,
+        [editorId]: {
+          items: [...(s.editors[editorId]?.items ?? editor.items), newItem],
+          connections: s.editors[editorId]?.connections ?? editor.connections,
+          counts: {
+            ...(s.editors[editorId]?.counts ?? editor.counts),
+            [key]: nextCount,
+          },
+          sequenceCounter: seq,
         },
-        sequenceCounter: seq,
       },
-    },
-  }));
+    }));
 
-  return newItem;
-},
+    return newItem;
+  },
 
   updateItem: (editorId, itemId, patch) => {
     set((s) => {
@@ -467,7 +473,77 @@ addItem: (editorId, component, opts = {}) => {
     });
   },
 
-  updateCanvasState: (editorId, state) => {
+  batchUpdateItems: (editorId, updates) => {
+    set((s) => {
+      const ed = s.editors[editorId];
+      if (!ed) return s;
+
+      const nextItems = [...ed.items];
+      updates.forEach(({ id, patch }) => {
+        const index = nextItems.findIndex((it) => it.id === id);
+        if (index !== -1) {
+          nextItems[index] = { ...nextItems[index], ...patch };
+        }
+      });
+
+      return {
+        editors: {
+          ...s.editors,
+          [editorId]: {
+            ...ed,
+            items: nextItems,
+          },
+        },
+      };
+    });
+  },
+
+  batchDeleteItems: (editorId, itemIds) => {
+    set((s) => {
+      const ed = s.editors[editorId];
+      if (!ed) return s;
+
+      const idsSet = new Set(itemIds);
+
+      // Also remove connections associated with these items
+      const filteredConnections = ed.connections.filter(
+        (conn) =>
+          !idsSet.has(conn.sourceItemId) && !idsSet.has(conn.targetItemId),
+      );
+
+      return {
+        editors: {
+          ...s.editors,
+          [editorId]: {
+            ...ed,
+            items: ed.items.filter((it) => !idsSet.has(it.id)),
+            connections: filteredConnections,
+          },
+        },
+      };
+    });
+  },
+
+  batchRemoveConnections: (editorId, connectionIds) => {
+    set((s) => {
+      const ed = s.editors[editorId];
+      if (!ed) return s;
+
+      const idsSet = new Set(connectionIds);
+
+      return {
+        editors: {
+          ...s.editors,
+          [editorId]: {
+            ...ed,
+            connections: ed.connections.filter((c) => !idsSet.has(c.id)),
+          },
+        },
+      };
+    });
+  },
+
+  updateCanvasState: (editorId: string, state: CanvasState) => {
     set((s) => ({
       editors: {
         ...s.editors,

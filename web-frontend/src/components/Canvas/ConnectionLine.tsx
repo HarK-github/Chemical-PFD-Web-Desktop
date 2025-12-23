@@ -13,7 +13,7 @@ interface ConnectionLineProps {
     // but strictly for drawing, we rely on 'points'
     items?: CanvasItem[];
     isSelected?: boolean;
-    onSelect?: () => void;
+    onSelect?: (e: KonvaEventObject<any>) => void;
     // Removed 'allConnections' since collision is now handled in the parent/utils
 }
 
@@ -52,7 +52,7 @@ export const ConnectionLine = ({
                 strokeWidth={20} // 20px wide clickable area
                 onMouseDown={(e) => {
                     e.cancelBubble = true;
-                    onSelect?.();
+                    onSelect?.(e);
                 }}
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
