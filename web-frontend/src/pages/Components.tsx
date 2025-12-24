@@ -7,13 +7,16 @@ export default function Components() {
     const { components, addComponent, updateComponent, deleteComponent } = useComponents();
     const { isOpen, onOpen, onOpenChange } = useDisclosure();
 
+    // Local type for handling input state (allows strings for "62.0")
+    type EditableGrip = Omit<Grip, 'x' | 'y'> & { x: string | number; y: string | number };
+    const [grips, setGrips] = useState<EditableGrip[]>([]);
+
     // Form State
     const [name, setName] = useState("");
     const [category, setCategory] = useState("");
     const [newCategory, setNewCategory] = useState("");
     const [iconFile, setIconFile] = useState<string | null>(null);
     const [svgFile, setSvgFile] = useState<string | null>(null);
-    const [grips, setGrips] = useState<Grip[]>([]);
     const [legend, setLegend] = useState("");
     const [suffix, setSuffix] = useState("");
 
@@ -62,7 +65,7 @@ export default function Components() {
         }
     };
 
-    const updateGrip = (index: number, field: keyof Grip, value: any) => {
+    const updateGrip = (index: number, field: keyof EditableGrip, value: any) => {
         const newGrips = [...grips];
         newGrips[index] = { ...newGrips[index], [field]: value };
         setGrips(newGrips);
@@ -88,8 +91,8 @@ export default function Components() {
         const y = e.clientY - rect.top;
 
         // Calculate percentage relative to wrapper dimensions (which match image dimensions)
-        const xPercent = parseFloat(((x / rect.width) * 100).toFixed(1));
-        const yPercent = parseFloat(((y / rect.height) * 100).toFixed(1));
+        const xPercent = parseFloat(((x / rect.width) * 100).toFixed(4));
+        const yPercent = parseFloat(((y / rect.height) * 100).toFixed(4));
 
         const clampedX = Math.max(0, Math.min(100, xPercent));
         const clampedY = Math.max(0, Math.min(100, yPercent));
@@ -165,6 +168,13 @@ export default function Components() {
 
         const finalCategory = newCategory || category;
 
+        // Clean grips to ensure they are numbers for the final object
+        const cleanGrips: Grip[] = grips.map(g => ({
+            ...g,
+            x: typeof g.x === 'string' ? parseFloat(g.x) || 0 : g.x,
+            y: typeof g.y === 'string' ? parseFloat(g.y) || 0 : g.y
+        }));
+
         // Construct new component object as per requirements
         const newComponent: ComponentItem = {
             name,
@@ -173,7 +183,7 @@ export default function Components() {
             class: finalCategory,
             object: name.replace(/\s+/g, ''),
             args: [],
-            grips,
+            grips: cleanGrips,
             isCustom: true,
             legend,
             suffix
@@ -395,7 +405,7 @@ export default function Components() {
                                                         </div>
                                                     ))}
 
-                                                    {/* Hover hint logic removed for cleaner UI or re-add if needed */}
+                                                    {/* Hover hint removed as requested/implied for cleanliness */}
                                                 </div>
                                             ) : (
                                                 <div className="text-center text-gray-400 p-4">
@@ -424,19 +434,19 @@ export default function Components() {
                                                     </div>
                                                     <div className="col-span-10 grid grid-cols-3 gap-2">
                                                         <Input
-                                                            type="number"
+                                                            type="text"
                                                             size="sm"
                                                             startContent={<span className="text-xs text-gray-400">X%</span>}
                                                             value={grip.x.toString()}
-                                                            onValueChange={(v) => updateGrip(idx, 'x', parseFloat(v))}
+                                                            onValueChange={(v) => updateGrip(idx, 'x', v)}
                                                             classNames={{ input: "text-right" }}
                                                         />
                                                         <Input
-                                                            type="number"
+                                                            type="text"
                                                             size="sm"
                                                             startContent={<span className="text-xs text-gray-400">Y%</span>}
                                                             value={grip.y.toString()}
-                                                            onValueChange={(v) => updateGrip(idx, 'y', parseFloat(v))}
+                                                            onValueChange={(v) => updateGrip(idx, 'y', v)}
                                                             classNames={{ input: "text-right" }}
                                                         />
                                                         <Select
