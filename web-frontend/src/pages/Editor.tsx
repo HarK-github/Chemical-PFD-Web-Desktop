@@ -746,10 +746,12 @@ export default function Editor() {
               </Button>
             </DropdownTrigger>
             <DropdownMenu aria-label="View Actions">
-              <DropdownItem key="zoom-in">Zoom In (+)</DropdownItem>
-              <DropdownItem key="zoom-out">Zoom Out (-)</DropdownItem>
-              <DropdownItem key="fit">Fit to Screen</DropdownItem>
-              <DropdownItem key="grid">Toggle Grid</DropdownItem>
+              <DropdownItem key="zoom-in" onPress={handleZoomIn}>Zoom In (+)</DropdownItem>
+              <DropdownItem key="zoom-out" onPress={handleZoomOut}>Zoom Out (-)</DropdownItem>
+              <DropdownItem key="fit" onPress={handleCenterToContent}>Fit to Screen</DropdownItem>
+              <DropdownItem key="grid" onPress={handleToggleGrid}>
+                {showGrid ? "Hide Grid" : "Show Grid"}
+              </DropdownItem>
             </DropdownMenu>
           </Dropdown>
         </div>
@@ -845,7 +847,7 @@ export default function Editor() {
                 : "none",
               backgroundSize: `${20 * stageScale}px ${20 * stageScale}px`,
               backgroundPosition: `${stagePos.x}px ${stagePos.y}px`,
-              opacity: 0.6,
+              opacity: 0.5,
             }}
           />
 
