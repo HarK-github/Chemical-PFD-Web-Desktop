@@ -181,8 +181,7 @@ class ProjectDetailView(generics.RetrieveUpdateDestroyAPIView):
         # Update Project fields
         project_data = {
             "name": request.data.get("name", project.name),
-            "description": request.data.get("description", project.description),
-            "thumbnail": request.data.get("thumbnail", project.thumbnail)
+            "description": request.data.get("description", project.description)
         }
 
         serializer = self.get_serializer(project, data=project_data, partial=partial)
