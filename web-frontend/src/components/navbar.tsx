@@ -15,6 +15,7 @@ import { ThemeSwitch } from "./theme-switch";
 export const CNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const username = localStorage.getItem("username") || "Guest";
 
   return (
     <>
@@ -55,16 +56,17 @@ export const CNavbar = () => {
                   as="button"
                   className="transition-transform"
                   color="primary"
-                  name="Name"
+                  name={username[0]?.toUpperCase() || "U"}
                   size="sm"
-                  src="https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png"
+                  src=""
                 />
               </PopoverTrigger>
               <PopoverContent className="p-1 w-60">
                 <div className="px-1 py-2 w-full">
                   <User
                     avatarProps={{
-                      src: "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png",
+                      src: "",
+                      name: username[0]?.toUpperCase() || "U"
                     }}
                     classNames={{
                       base: "gap-8",
@@ -72,7 +74,7 @@ export const CNavbar = () => {
                       description: "text-default-500",
                     }}
                     description=""
-                    name="Name"
+                    name={username}
                   />
                 </div>
                 <Divider />
