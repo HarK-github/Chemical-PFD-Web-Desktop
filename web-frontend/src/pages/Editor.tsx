@@ -36,7 +36,7 @@ import {
 import { calculateManualPathsWithBridges } from "@/utils/routing";
 import { useComponents } from "@/context/ComponentContext";
 import ExportModal from "@/components/Canvas/ExportModal";
-import { useExport } from "@/hooks/useExport";
+import { exportDiagram, downloadBlob } from "@/utils/exports";
 import { ExportOptions } from "@/components/Canvas/types";
 import {
   useEditorStore,
@@ -100,18 +100,63 @@ export default function Editor() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
-
-  const { exportDiagram, isExporting, exportError } = useExport();
-  const handleExport = async (options: ExportOptions) => {
-    await exportDiagram(stageRef.current, options, droppedItems);
-    setShowExportModal(false);
-
-    if (!exportError) {
-      alert("Export successful!");
-    }
-  };
+ 
+  // Update the handleExport function (replace existing one)
 
   // --- State ---
+  const [isExporting, setIsExporting] = useState(false);
+
+// Update the handleExport function to use it:
+const handleExport = async (options: ExportOptions) => {
+  setIsExporting(true);
+  
+  // Save current grid state
+  const originalShowGrid = showGrid;
+  
+  try {
+    if (!stageRef.current) {
+      throw new Error('Stage not available');
+    }
+
+    // Temporarily update grid visibility based on export options
+    if (options.showGrid !== undefined) {
+      setShowGrid(options.showGrid);
+      
+      // Force a re-render to update the canvas
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    // Use the new exportDiagram function
+    const result = await exportDiagram(
+      stageRef.current,
+      droppedItems,
+      options
+    );
+
+    // Generate filename
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `diagram-${timestamp}.${options.format}`;
+    
+    // Download based on format
+    downloadBlob(result as Blob, filename);
+    
+    setShowExportModal(false);
+  } catch (error) {
+    console.error('Export failed:', error);
+    alert(`Export failed: ${(error as Error).message}`);
+  } finally {
+    // Restore original grid state
+    setShowGrid(originalShowGrid);
+    setIsExporting(false);
+  }
+};
+useEffect(() => {
+  if (showExportModal) {
+    // Clear all selections when export modal opens
+    setSelectedItemIds(new Set());
+    setSelectedConnectionIds(new Set());
+  }
+}, [showExportModal]);
   const { components } = useComponents();
   const handleZoomIn = () => {
     setStageScale((prev) => Math.min(3, prev + 0.1));
@@ -1215,7 +1260,7 @@ export default function Editor() {
           )}
         </div>
         <ExportModal
-          isExporting={isExporting}
+          isExporting={isExporting} // Change to local state
           isOpen={showExportModal}
           onClose={() => setShowExportModal(false)}
           onExport={handleExport}
