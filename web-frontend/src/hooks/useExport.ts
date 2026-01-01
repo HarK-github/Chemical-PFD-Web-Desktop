@@ -2,11 +2,9 @@ import { useState, useCallback } from 'react';
 import Konva from 'konva';
 import { ExportOptions, ExportFormat } from '@/components/Canvas/types';
 import {
-  exportToImage, 
-  exportToPDF,
+  exportDiagram as exportDiagramCore,
   downloadBlob,
-  downloadSVG,
-} from '@/utils/exports';
+} from '@/utils/exports'; // Updated import path
 import { CanvasItem } from '@/components/Canvas/types';
 
 export function useExport() {
@@ -17,16 +15,22 @@ export function useExport() {
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
     return `diagram-${timestamp}.${format}`;
   };
-const exportDiagram = useCallback(
-  async (
-    stage: Konva.Stage | null,
-    options: ExportOptions,
-    items: CanvasItem[]
-  ): Promise<void> => {      
-    if (!stage) {
+
+  const exportDiagram = useCallback(
+    async (
+      stage: Konva.Stage | null,
+      options: ExportOptions,
+      items: CanvasItem[]
+    ): Promise<void> => {
+      if (!stage) {
         setExportError('Stage not found');
         return;
-    }
+      }
+
+      if (!items || items.length === 0) {
+        setExportError('No items to export');
+        return;
+      }
 
       setIsExporting(true);
       setExportError(null);
@@ -34,29 +38,18 @@ const exportDiagram = useCallback(
       try {
         const filename = generateFilename(options.format);
 
-        switch (options.format) {
+        // Use the new exportDiagram function from Canvas/export
+        const result = await exportDiagramCore(stage, items, options);
 
-          case 'pdf': {
-            const pdfBlob = await exportToPDF(stage, options, items);
-            downloadBlob(pdfBlob, filename);
-            break;
-          }
+        // Download the result
+        downloadBlob(result as Blob, filename);
 
-          case 'png':
-          case 'jpg': {
-            const imageBlob = await exportToImage(stage, options, items);
-            downloadBlob(imageBlob, filename);
-            break;
-          }
-
-          default:
-            throw new Error(`Unsupported format: ${options.format}`);
-        }
       } catch (error) {
         console.error('Export failed:', error);
         setExportError(
           error instanceof Error ? error.message : 'Export failed. Please try again.'
         );
+        throw error; // Re-throw so the caller can handle it too
       } finally {
         setIsExporting(false);
       }
