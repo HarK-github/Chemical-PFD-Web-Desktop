@@ -80,7 +80,12 @@ export interface CanvasItemImageProps {
   onChange: (newAttrs: CanvasItem) => void;
   onDragEnd?: (item: CanvasItem) => void;
   onTransformEnd?: (item: CanvasItem) => void;
-  onGripMouseDown?: (itemId: number, gripIndex: number, x: number, y: number) => void;
+  onGripMouseDown?: (
+    itemId: number,
+    gripIndex: number,
+    x: number,
+    y: number,
+  ) => void;
   onGripMouseEnter?: (itemId: number, gripIndex: number) => void;
   onGripMouseLeave?: () => void;
   isDrawingConnection?: boolean;
@@ -179,12 +184,10 @@ export const exportPresets = [
     name: 'Dark Mode',
     description: 'Dark background export',
     options: {
-      format: 'png' as ExportFormat,
-      scale: 2,
-      quality: 'high' as ExportQuality,
-      padding: 40,
-      backgroundColor: '#1e293b',
-      showGrid: false,
+      format: 'svg',
+      quality: 'high',
+      includeGrid: true,
+      padding: 30,
     },
   },
 ];

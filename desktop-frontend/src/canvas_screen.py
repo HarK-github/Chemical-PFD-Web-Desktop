@@ -1,16 +1,35 @@
-from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtCore import Qt
+import os
+from PyQt5 import QtWidgets
 from PyQt5.QtGui import QColor, QBrush, QKeySequence
-from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QMdiArea, QShortcut
+from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QShortcut, QMdiSubWindow
+from PyQt5.QtCore import Qt
 
 from src.canvas.widget import CanvasWidget
 from src.component_library import ComponentLibrary
 from src.theme import apply_theme_to_screen
 from src.navigation import slide_to_index
 import src.app_state as app_state
+from src.theme_manager import theme_manager
 
+class CanvasSubWindow(QMdiSubWindow):
+    def closeEvent(self, event):
+        canvas = self.widget()
+        if canvas:
+            from src.canvas.commands import handle_close_event
+            handle_close_event(canvas, event)
+        else:
+            event.accept()
 
 class CanvasScreen(QMainWindow):
+    def closeEvent(self, event):
+        """Handle application close by attempting to close all tabs."""
+        self.mdi_area.closeAllSubWindows()
+        # If any subwindows remain (user cancelled save), ignore the close event
+        if self.mdi_area.subWindowList():
+            event.ignore()
+        else:
+            event.accept()
+
     def __init__(self):
         super().__init__()
 
@@ -37,6 +56,12 @@ class CanvasScreen(QMainWindow):
         
         main_layout.addWidget(self.mdi_area)
 
+        # Connect to theme manager for MDI area updates
+        theme_manager.theme_changed.connect(self.apply_mdi_theme)
+        
+        # Apply initial MDI theme
+        self.apply_mdi_theme(theme_manager.current_theme)
+
         apply_theme_to_screen(self)
         self._register_shortcuts()
 
@@ -50,17 +75,101 @@ class CanvasScreen(QMainWindow):
         self.menu_manager.redo_clicked.connect(self.on_redo)
 
         # Placeholders
-        self.menu_manager.open_project_clicked.connect(lambda: print("Open Project clicked"))
-        self.menu_manager.save_project_clicked.connect(self.on_save_project)
+        self.menu_manager.open_project_clicked.connect(self.on_open_file)
+        self.menu_manager.save_project_clicked.connect(self.on_save_file)
+        self.menu_manager.save_project_as_clicked.connect(self.on_save_as_file)
         self.menu_manager.generate_image_clicked.connect(self.on_generate_image)
-        self.menu_manager.generate_report_clicked.connect(lambda: print("Generate Report clicked"))
+        self.menu_manager.generate_report_clicked.connect(self.on_generate_report)
         self.menu_manager.add_symbols_clicked.connect(self.open_add_symbol_dialog)
+
+    def apply_mdi_theme(self, theme):
+        """Apply theme to MDI area title bar and tabs."""
+        print(f"[CANVAS] Applying MDI theme: {theme}")
+        
+        if theme == "dark":
+            mdi_stylesheet = """
+                QMdiArea {
+                    background-color: #0f172a;
+                }
+                
+                /* Tab Bar Styling */
+                QTabBar::tab {
+                    background-color: #1e293b;
+                    color: #cbd5e1;
+                    border: 1px solid #334155;
+                    border-bottom: none;
+                    border-top-left-radius: 6px;
+                    border-top-right-radius: 6px;
+                    padding: 8px 16px;
+                    margin-right: 2px;
+                    font-size: 13px;
+                }
+                
+                QTabBar::tab:selected {
+                    background-color: #3b82f6;
+                    color: #ffffff;
+                    border-color: #3b82f6;
+                    font-weight: bold;
+                }
+                
+                QTabBar::tab:hover:!selected {
+                    background-color: #334155;
+                    color: #f1f5f9;
+                }
+                
+                /* Subwindow styling */
+                QMdiSubWindow {
+                    background-color: #0f172a;
+                }
+            """
+        else:  # light theme
+            mdi_stylesheet = """
+                QMdiArea {
+                    background-color: #fffaf5;
+                }
+                
+                /* Tab Bar Styling */
+                QTabBar::tab {
+                    background-color: #f4e8dc;
+                    color: #3A2A20;
+                    border: 1px solid #C97B5A;
+                    border-bottom: none;
+                    border-top-left-radius: 6px;
+                    border-top-right-radius: 6px;
+                    padding: 8px 16px;
+                    margin-right: 2px;
+                    font-size: 13px;
+                }
+                
+                QTabBar::tab:selected {
+                    background-color: #C97B5A;
+                    color: #ffffff;
+                    border-color: #C97B5A;
+                    font-weight: bold;
+                }
+                
+                QTabBar::tab:hover:!selected {
+                    background-color: #ffffff;
+                    color: #3A2A20;
+                }
+                
+                /* Subwindow styling */
+                QMdiSubWindow {
+                    background-color: #fffaf5;
+                }
+            """
+        
+        self.mdi_area.setStyleSheet(mdi_stylesheet)
+        # print(f"[CANVAS] MDI theme applied: {theme}")
 
     def on_new_project(self):
         canvas = CanvasWidget(self)
         canvas.update_canvas_theme()
         
-        sub = self.mdi_area.addSubWindow(canvas)
+        sub = CanvasSubWindow()
+        sub.setWidget(canvas)
+        sub.setAttribute(Qt.WA_DeleteOnClose)
+        self.mdi_area.addSubWindow(sub)
         sub.setWindowTitle("New Project")
         sub.showMaximized()
 
@@ -145,9 +254,110 @@ class CanvasScreen(QMainWindow):
         
         if filename:
             canvas.export_to_image(filename)
+            
+    def on_generate_report(self):
+        active_sub = self.mdi_area.currentSubWindow()
+        if not active_sub or not isinstance(active_sub.widget(), CanvasWidget):
+            return
+            
+        canvas = active_sub.widget()
+        options = QtWidgets.QFileDialog.Options()
+        filename, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Generate PDF Report", "", 
+            "PDF Files (*.pdf)", 
+            options=options
+        )
+        
+        if filename:
+            if not filename.lower().endswith(".pdf"):
+                filename += ".pdf"
+            try:
+                canvas.generate_report(filename)
+                QtWidgets.QMessageBox.information(self, "Success", f"Report saved to {filename}")
+            except Exception as e:
+                QtWidgets.QMessageBox.critical(self, "Error", f"Failed to generate report:\n{str(e)}")
+
+    def on_save_file(self):
+        active_sub = self.mdi_area.currentSubWindow()
+        if not active_sub or not isinstance(active_sub.widget(), CanvasWidget):
+            QtWidgets.QMessageBox.information(self, "Information", "No file to save.")
+            return
+            
+        canvas = active_sub.widget()
+        # If file already has a path, save directly
+        if canvas.file_path:
+            try:
+                canvas.save_file(canvas.file_path)
+                active_sub.setWindowTitle(f"Canvas - {os.path.basename(canvas.file_path)}")
+                QtWidgets.QMessageBox.information(self, "Success", f"Project saved to {canvas.file_path}")
+            except Exception as e:
+                 QtWidgets.QMessageBox.critical(self, "Error", f"Failed to save file:\n{str(e)}")
+        else:
+            # Otherwise treat as Save As
+            self.on_save_as_file()
+
+    def on_save_as_file(self):
+        active_sub = self.mdi_area.currentSubWindow()
+        if not active_sub or not isinstance(active_sub.widget(), CanvasWidget):
+             QtWidgets.QMessageBox.information(self, "Information", "No file to save.")
+             return
+             
+        canvas = active_sub.widget()
+        options = QtWidgets.QFileDialog.Options()
+        filename, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Save Project As", "", 
+            "Process Flow Diagram (*.pfd)", 
+            options=options
+        )
+        
+        if filename:
+            if not filename.lower().endswith(".pfd"):
+                filename += ".pfd"
+            try:
+                canvas.save_file(filename)
+                active_sub.setWindowTitle(f"Canvas - {os.path.basename(filename)}")
+                QtWidgets.QMessageBox.information(self, "Success", f"Project saved to {filename}")
+            except Exception as e:
+                QtWidgets.QMessageBox.critical(self, "Error", f"Failed to save file:\n{str(e)}")
+
+    def on_open_file(self):
+        # Create new subwindow for open
+        self.on_new_project()
+        active_sub = self.mdi_area.currentSubWindow()
+        canvas = active_sub.widget()
+        
+        options = QtWidgets.QFileDialog.Options()
+        filename, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Open Project", "", 
+            "Process Flow Diagram (*.pfd)", 
+            options=options
+        )
+        
+        if filename:
+            try:
+                if canvas.open_file(filename):
+                    active_sub.setWindowTitle(f"Canvas - {os.path.basename(filename)}")
+                else:
+                    QtWidgets.QMessageBox.warning(self, "Error", "Failed to load file. It might be corrupted or incompatible.")
+                    active_sub.close()
+            except Exception as e:
+                QtWidgets.QMessageBox.critical(self, "Error", f"Failed to open file:\n{str(e)}")
+                active_sub.close()
+        else:
+            active_sub.close()
 
     def logout(self):
         app_state.access_token = None
         app_state.refresh_token = None
         app_state.current_user = None
         slide_to_index(0, direction=-1)
+
+    def open_add_symbol_dialog(self):
+        from src.add_symbol_dialog import AddSymbolDialog
+        
+        # CHANGED: Explicitly pass the current theme from the library
+        current_theme = self.library.current_library_theme
+        
+        dlg = AddSymbolDialog(self, theme=current_theme)
+        if dlg.exec_() == QtWidgets.QDialog.Accepted:
+            self.library.reload_components()

@@ -1,6 +1,7 @@
-import Konva from 'konva';
-import jsPDF from 'jspdf';
-import { ExportOptions, CanvasItem } from '@/components/Canvas/types';
+import Konva from "konva";
+import jsPDF from "jspdf";
+
+import { ExportOptions, CanvasItem } from "@/components/Canvas/types";
 
 /* -------------------------------------------
    CONTENT BOUNDS
@@ -15,7 +16,7 @@ function getContentBounds(items: CanvasItem[]) {
   let maxX = -Infinity;
   let maxY = -Infinity;
 
-  items.forEach(item => {
+  items.forEach((item) => {
     minX = Math.min(minX, item.x);
     minY = Math.min(minY, item.y);
     maxX = Math.max(maxX, item.x + item.width);
@@ -125,7 +126,7 @@ function addWatermark(
 export async function exportToImage(
   stage: Konva.Stage,
   options: ExportOptions,
-  items: CanvasItem[]
+  items: CanvasItem[],
 ): Promise<Blob> {
   if (!items.length) {
     throw new Error('Nothing to export');
@@ -277,7 +278,7 @@ export async function exportToSVG(
 export async function exportToPDF(
   stage: Konva.Stage,
   options: ExportOptions,
-  items: CanvasItem[]
+  items: CanvasItem[],
 ): Promise<Blob> {
   // For PDF, always use PNG as source
   const imageBlob = await exportToImage(
@@ -358,7 +359,8 @@ export async function exportDiagram(
 -------------------------------------------- */
 export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
+
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
@@ -368,6 +370,7 @@ export function downloadBlob(blob: Blob, filename: string) {
 }
 
 export function downloadSVG(svgString: string, filename: string) {
-  const blob = new Blob([svgString], { type: 'image/svg+xml' });
+  const blob = new Blob([svgString], { type: "image/svg+xml" });
+
   downloadBlob(blob, filename);
 }

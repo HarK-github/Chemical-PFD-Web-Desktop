@@ -2,12 +2,14 @@ import os
 from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtCore import Qt, QPoint, QPointF, QRectF
 from PyQt5.QtWidgets import QWidget, QLabel, QUndoStack
+from PyQt5.QtWidgets import QWidget, QLabel, QUndoStack
 from PyQt5.QtGui import QPainter
 
+from src.connection import Connection
 from src.component_widget import ComponentWidget
 import src.app_state as app_state
 from src.canvas import resources, painter
-from src.canvas.commands import AddCommand, DeleteCommand, MoveCommand
+from src.canvas.commands import AddCommand, DeleteCommand, MoveCommand, AddConnectionCommand
 
 
 
@@ -34,6 +36,10 @@ class CanvasWidget(QWidget):
         self.components = []
         self.connections = []
         self.active_connection = None
+        
+        self.file_path = None
+        self.is_modified = False
+        self.undo_stack.cleanChanged.connect(self.set_modified)
 
         # Configs
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -55,9 +61,29 @@ class CanvasWidget(QWidget):
             event.ignore()
 
     def dropEvent(self, event):
+        import json
         pos = event.pos()
         text = event.mimeData().text()
-        self.create_component_command(text, pos)
+        
+        # Parse JSON component data
+        try:
+            component_data = json.loads(text)
+            object_name = component_data.get('object', text)
+            s_no = component_data.get('s_no', '')
+            legend = component_data.get('legend', '')
+            suffix = component_data.get('suffix', '')
+        except (json.JSONDecodeError, ValueError):
+            # Fallback for old format (plain text)
+            object_name = text
+            s_no = ''
+            legend = ''
+            suffix = ''
+        
+        self.create_component_command(object_name, pos, component_data={
+            's_no': s_no,
+            'legend': legend,
+            'suffix': suffix
+        })
         event.acceptProposedAction()
 
     def deselect_all(self):
@@ -65,6 +91,15 @@ class CanvasWidget(QWidget):
             comp.set_selected(False)
         for conn in self.connections:
             conn.is_selected = False
+        self.update()
+
+    def start_connection(self, component, grip_index, side):
+        """Called by ComponentWidget when a port is clicked."""
+        self.deselect_all()
+        # Create a new transient connection
+        self.active_connection = Connection(component, grip_index, side)
+        # Position the end point at the start point initially
+        self.active_connection.current_pos = self.active_connection.get_start_pos()
         self.update()
 
     # ---------------------- SELECTION + CONNECTION LOGIC ----------------------
@@ -98,7 +133,7 @@ class CanvasWidget(QWidget):
                 for p in params:
                     old = getattr(hit_connection, p)
                     setattr(hit_connection, p, old + 1.0)
-                    hit_connection.calculate_path()
+                    hit_connection.update_path(self.components, self.connections)
                     new_points = hit_connection.path
                     
                     sens = QPointF(0, 0)
@@ -115,7 +150,7 @@ class CanvasWidget(QWidget):
                         best_sensitivity = sens
                 
                 hit_connection.path = list(base_points)
-                hit_connection.calculate_path()
+                hit_connection.update_path(self.components, self.connections)
 
                 self.drag_param_name = best_param
                 self.drag_sensitivity = best_sensitivity
@@ -158,7 +193,7 @@ class CanvasWidget(QWidget):
                 change = dot / sens_sq
                 new_val = self.drag_start_param_val + change
                 setattr(self.drag_connection, self.drag_param_name, new_val)
-                self.drag_connection.calculate_path()
+                self.drag_connection.update_path(self.components, self.connections)
                 self.update()
 
         super().mouseMoveEvent(event)
@@ -194,7 +229,7 @@ class CanvasWidget(QWidget):
             self.active_connection.clear_snap_target()
             self.active_connection.current_pos = pos
 
-        self.active_connection.calculate_path(self.components)
+        self.active_connection.update_path(self.components, self.connections)
         self.update()
 
     def mouseReleaseEvent(self, event):
@@ -210,7 +245,13 @@ class CanvasWidget(QWidget):
         super().mouseReleaseEvent(event)
 
     def keyPressEvent(self, event):
-        if event.key() in (Qt.Key_Delete, Qt.Key_Backspace):
+        if event.key() == Qt.Key_Escape:
+            if self.active_connection:
+                self.active_connection = None
+                self.update()
+            else:
+                self.deselect_all()
+        elif event.key() in (Qt.Key_Delete, Qt.Key_Backspace):
             self.delete_selected_components()
         else:
             super().keyPressEvent(event)
@@ -243,8 +284,11 @@ class CanvasWidget(QWidget):
                     self.active_connection.snap_grip_index,
                     self.active_connection.snap_side
                 )
-                self.active_connection.calculate_path(self.components)
-                self.connections.append(self.active_connection)
+                self.active_connection.update_path(self.components, self.connections)
+                
+                # Use Undo Command
+                cmd = AddConnectionCommand(self, self.active_connection)
+                self.undo_stack.push(cmd)
             
             self.active_connection = None
             self.update()
@@ -259,18 +303,37 @@ class CanvasWidget(QWidget):
         painter.draw_active_connection(qp, self.active_connection)
 
     # ---------------------- COMPONENT CREATION ----------------------
-    def create_component_command(self, text, pos):
+    def create_component_command(self, text, pos, component_data=None):
+        component_data = component_data or {}
+        
         svg = resources.find_svg_path(text, self.base_dir)
         config = resources.get_component_config_by_name(text, self.component_config) or {}
+        # Important: Copy config to prevent shared state between same components
+        config = config.copy()
+        
+        # Add s_no to config (CRITICAL for grip matching!)
+        config["s_no"] = component_data.get('s_no', '')
+        config["object"] = text
+        
+        # Ensure name is set
+        if "name" not in config:
+            config["name"] = text
 
         # Label generation
         key = resources.clean_string(text)
         label_text = text
 
+        # Use component_data legend/suffix if available
+        legend = component_data.get('legend', '')
+        suffix = component_data.get('suffix', '')
+
         if key in self.label_data:
             d = self.label_data[key]
             d["count"] += 1
-            label_text = f"{d['legend']}{d['count']:02d}{d['suffix']}"
+            # Override with CSV data if available
+            legend = legend or d['legend']
+            suffix = suffix or d['suffix']
+            label_text = f"{legend}{d['count']:02d}{suffix}"
 
         config["default_label"] = label_text
 
@@ -287,10 +350,40 @@ class CanvasWidget(QWidget):
         self.undo_stack.push(cmd)
 
     # ---------------------- EXPORT ----------------------
-    def export_to_image(self, filename):
-        from src.canvas.export import export_to_image
-        export_to_image(self, filename)
-
     def export_to_pdf(self, filename):
-        from src.canvas.export import export_to_pdf
-        export_to_pdf(self, filename)
+        from src.canvas.commands import export_pdf
+        export_pdf(self, filename)
+
+    def generate_report(self, filename):
+        from src.canvas.commands import generate_report
+        generate_report(self, filename)
+
+    # ---------------------- FILE MANAGEMENT ----------------------
+    def set_modified(self, clean):
+        """Called when undo stack clean state changes."""
+        self.is_modified = not clean
+        # Update window title if possible
+        if self.parent() and hasattr(self.parent(), "setWindowTitle"):
+            title = self.parent().windowTitle()
+            if not clean:
+                if not title.endswith("*"):
+                    self.parent().setWindowTitle(title + "*")
+            else:
+                if title.endswith("*"):
+                    self.parent().setWindowTitle(title[:-1])
+
+    def save_file(self, filename):
+        from src.canvas.commands import save_project
+        save_project(self, filename)
+        
+    def open_file(self, filename):
+        from src.canvas.commands import open_project
+        return open_project(self, filename)
+
+    def closeEvent(self, event):
+        from src.canvas.commands import handle_close_event
+        handle_close_event(self, event)
+
+    def export_to_image(self, filename):
+        from src.canvas.commands import export_image
+        export_image(self, filename)

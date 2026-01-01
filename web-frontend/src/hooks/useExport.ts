@@ -12,10 +12,13 @@ export function useExport() {
   const [exportError, setExportError] = useState<string | null>(null);
 
   const generateFilename = (format: ExportFormat): string => {
-    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const timestamp = new Date()
+      .toISOString()
+      .slice(0, 19)
+      .replace(/[:T]/g, "-");
+
     return `diagram-${timestamp}.${format}`;
   };
-
   const exportDiagram = useCallback(
     async (
       stage: Konva.Stage | null,
@@ -45,16 +48,18 @@ export function useExport() {
         downloadBlob(result as Blob, filename);
 
       } catch (error) {
-        console.error('Export failed:', error);
+        console.error("Export failed:", error);
         setExportError(
-          error instanceof Error ? error.message : 'Export failed. Please try again.'
+          error instanceof Error
+            ? error.message
+            : "Export failed. Please try again.",
         );
         throw error; // Re-throw so the caller can handle it too
       } finally {
         setIsExporting(false);
       }
     },
-    []
+    [],
   );
 
   return {
