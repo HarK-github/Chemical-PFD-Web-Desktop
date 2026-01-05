@@ -1027,7 +1027,7 @@ const handleExport = async (options: ExportOptions) => {
               // Create a hidden file input
               const input = document.createElement('input');
               input.type = 'file';
-              input.accept = '.export';
+              input.accept = '.pfd';
               input.onchange = (e) => handleImportDiagram(e as any);
               input.click();
             }}
