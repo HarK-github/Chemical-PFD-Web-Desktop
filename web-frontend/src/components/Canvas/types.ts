@@ -25,7 +25,7 @@ export interface ComponentItem {
 export interface CanvasItem extends ComponentItem {
   id: number;
   x: number;
-  component_id: number; // ✅ ADD THIS
+  component_id: number; // This is a foreing and primary key
   y: number;
   width: number;
   height: number;
