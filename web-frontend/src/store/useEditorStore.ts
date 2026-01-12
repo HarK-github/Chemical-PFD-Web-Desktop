@@ -214,74 +214,74 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   // =========================================
   // DATA MUTATIONS (with automatic history)
   // =========================================
+addItem: (editorId, component, opts = {}) => {
+  const s = get();
+  const editor = s.editors[editorId];
 
-  addItem: (editorId, component, opts = {}) => {
-    const s = get();
-    const editor = s.editors[editorId];
+  if (!editor) return undefined;
 
-    if (!editor) return undefined;
+  // --- 1. RECORD HISTORY ---
+  const snapshot = createSnapshot(editor);
+  const newPast = [...editor.past, snapshot];
+  // -------------------------
 
-    // --- 1. RECORD HISTORY ---
-    // Save the state BEFORE adding the item to 'past', and clear 'future'
-    const snapshot = createSnapshot(editor);
-    const newPast = [...editor.past, snapshot];
-    // -------------------------
+  const key = component.object?.trim() || component.name.trim();
+  const currentCount = editor.counts[key] ?? 0;
+  const nextCount = currentCount + 1;
+  const legend = component.legend ?? "";
+  const suffix = component.suffix ?? "";
+  const label = `${legend}-${padCount(nextCount)}${suffix ? `-${suffix}` : ""}`;
 
-    const key = component.object?.trim() || component.name.trim();
-    const currentCount = editor.counts[key] ?? 0;
-    const nextCount = currentCount + 1;
-    const legend = component.legend ?? "";
-    const suffix = component.suffix ?? "";
-    const label = `${legend}-${padCount(nextCount)}${suffix ? `-${suffix}` : ""}`;
+  const id = ++globalIdCounter;
+  const seq = (editor.sequenceCounter ?? 0) + 1;
 
-    const id = ++globalIdCounter;
-    const seq = (editor.sequenceCounter ?? 0) + 1;
+  const newItem: CanvasItem = {
+    id,
+    // CRITICAL: Add component_id here
+    component_id: component.id, // This is the database component ID
+    name: component.name,
+    icon: component.icon || "",
+    svg: component.svg || "",
+    class: component.class || "",
+    object: component.object || component.name,
+    args: component.args || [],
+    objectKey: key,
+    label,
+    legend,
+    suffix,
+    description: component.description ?? "",
+    png: component.png,
+    grips: component.grips,
+    x: typeof opts.x === "number" ? opts.x : 100,
+    y: typeof opts.y === "number" ? opts.y : 100,
+    width: typeof opts.width === "number" ? opts.width : 80,
+    height: typeof opts.height === "number" ? opts.height : 40,
+    rotation: typeof opts.rotation === "number" ? opts.rotation : 0,
+    sequence: seq,
+    addedAt: Date.now(),
+    isCustom: component.isCustom,
+  };
 
-    const newItem: CanvasItem = {
-      id,
-      name: component.name,
-      icon: component.icon || "",
-      svg: component.svg || "",
-      class: component.class || "",
-      object: component.object || component.name,
-      args: component.args || [],
-      objectKey: key,
-      label,
-      legend,
-      suffix,
-      description: component.description ?? "",
-      png: component.png,
-      grips: component.grips,
-      x: typeof opts.x === "number" ? opts.x : 100,
-      y: typeof opts.y === "number" ? opts.y : 100,
-      width: typeof opts.width === "number" ? opts.width : 80,
-      height: typeof opts.height === "number" ? opts.height : 40,
-      rotation: typeof opts.rotation === "number" ? opts.rotation : 0,
-      sequence: seq,
-      addedAt: Date.now(),
-      isCustom: component.isCustom,
-    };
-
-    set((state) => ({
-      editors: {
-        ...state.editors,
-        [editorId]: {
-          ...state.editors[editorId], // keep existing props
-          items: [...state.editors[editorId].items, newItem],
-          counts: {
-            ...state.editors[editorId].counts,
-            [key]: nextCount,
-          },
-          sequenceCounter: seq,
-          // Update History Refs
-          past: newPast,
-          future: [], // New action clears the future
+  set((state) => ({
+    editors: {
+      ...state.editors,
+      [editorId]: {
+        ...state.editors[editorId],
+        items: [...state.editors[editorId].items, newItem],
+        counts: {
+          ...state.editors[editorId].counts,
+          [key]: nextCount,
         },
+        sequenceCounter: seq,
+        // Update History Refs
+        past: newPast,
+        future: [],
       },
-    }));
+    },
+  }));
 
-    return newItem;
-  },
+  return newItem;
+},
 
   updateItem: (editorId, itemId, patch) => {
     set((s) => {
@@ -534,18 +534,18 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   },
 
   // Note: hydration usually shouldn't trigger history (it's a load event)
-  hydrateEditor: (editorId, state) =>
+  hydrateEditor: (editorId, state) => {
     set((s) => ({
       editors: {
         ...s.editors,
         [editorId]: {
           ...state,
-          past: [], // Reset history on load
+          past: [],
           future: [],
         },
       },
-    })),
-
+    }));
+  },
   updateCanvasState: (editorId, state) => {
     set((s) => {
       // If this is a bulk update, we might want to history track it
@@ -592,49 +592,41 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
  * Convert zustand CanvasState to backend format
  * This helper maps the local editor state to backend-compatible format
  */
-export function convertToBackendFormat(
+export const convertToBackendFormat = (
   projectId: number,
-  localItems: any[],
-  localConnections: any[],
+  items: CanvasItem[],
+  connections: Connection[],
   sequenceCounter: number
-): CanvasState {
-  const items: BackendCanvasItem[] = localItems.map((item, index) => ({
-    id: item.id,
-    project: projectId,
-    component_id: item.id || index + 1, // CRITICAL: Add this line - use item.id or generate one
-    label: item.label || '',
-    x: item.x || 0,
-    y: item.y || 0,
-    width: item.width || 80,
-    height: item.height || 40,
-    rotation: item.rotation || 0,
+) => {
+  const safeItems = items.map(item => ({
+    id: item.id,  // CanvasItem ID (frontend)
+    component: {
+      id: item.component_id || item.id,  // Use component_id if exists, otherwise use item.id
+      name: item.name || item.object || "Component"
+    },
+    label: item.label || "",
+    x: item.x,
+    y: item.y,
+    width: item.width,
+    height: item.height,
+    rotation: item.rotation,
     scaleX: item.scaleX || 1,
     scaleY: item.scaleY || 1,
-    sequence: item.sequence || index,
-    // Include component metadata
-    s_no: item.s_no || item.objectKey || '',
-    parent: item.parent || item.class || '',
-    name: item.name || '',
-    svg: item.svg || null,
-    png: item.png || null,
-    object: item.object || '',
-    legend: item.legend || '',
-    suffix: item.suffix || '',
-    grips: item.grips || [],
+    sequence: item.sequence || 0,
   }));
 
-  const connections: BackendConnection[] = localConnections.map(conn => ({
+  const safeConnections = connections.map(conn => ({
     id: conn.id,
     sourceItemId: conn.sourceItemId,
     sourceGripIndex: conn.sourceGripIndex,
     targetItemId: conn.targetItemId,
     targetGripIndex: conn.targetGripIndex,
-    waypoints: conn.waypoints || [],
+    waypoints: conn.waypoints || []
   }));
 
   return {
-    items,
-    connections,
+    items: safeItems,
+    connections: safeConnections,
     sequence_counter: sequenceCounter,
   };
-}
+};
