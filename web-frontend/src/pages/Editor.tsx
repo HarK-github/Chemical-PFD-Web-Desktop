@@ -535,7 +535,7 @@ export default function Editor() {
   }, [showExportModal]);
 
   // --- State ---
-  const { components } = useComponents();
+  const { components, isLoading, error } = useComponents();
   const handleZoomIn = () => {
     setStageScale((prev) => Math.min(3, prev + 0.1));
   };
@@ -599,6 +599,7 @@ export default function Editor() {
     Set<number>
   >(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
 
   // Connection drawing state
   const [isDrawingConnection, setIsDrawingConnection] = useState(false);
@@ -1342,8 +1343,12 @@ export default function Editor() {
             <ComponentLibrarySidebar
               components={components}
               initialSearchQuery={searchQuery}
+              selectedCategory={selectedCategory}
+              isLoading={isLoading}
+              error={error}
+              onCategoryChange={(cat) => setSelectedCategory(cat)}
               onDragStart={handleDragStart}
-              onSearch={setSearchQuery}
+              onSearch={(q) => setSearchQuery(q)}
             />
           )}
         </div>
